@@ -1,54 +1,71 @@
 import pygame
 import math
 
+class Vec2:
+    def __init__(self, x = 0, y = 0):
+        self.x, self.y = x, y
+
+    def __add__(self, v):
+        return Vec2(self.x + v.x, self.y + v.y)
+
+    def __sub__(self, v):
+        return Vec2(self.x - v.x, self.y - v.y)
+
+    def __mul__(self, alpha):
+        return Vec2(self.x * alpha, self.y * alpha)
+
+    def __rmul__(self, alpha):
+        return Vec2(self.x * alpha, self.y * alpha)
+
+    def intpair(self):
+        return (int(self.x), int(self.y))
+
+    def len(self):
+        return math.sqrt(self.x * self.x + self.y * self.y)
+
+
 class Player:
     def refresh_color(self):
-        """Set color(it depens on the module of Player speed)"""
-        self.color = min(255, int(math.sqrt(self.vx ** 2
-            + self.vy ** 2)) + 100)
+        """Set color (it depens on the module of Player speed)"""
+        self.color = min(255, int(self.v.len()) + 100)
 
-    def __init__(self, x = 100, y = 100, vx = 0, vy = 0, a = 500, r = 20):
-        """Constructor of Player class"""
-        """self.a - acceleration"""
-        """self.r - radius"""
-        self.x, self.y, self.vx, self.vy, self.a, self.r = \
-                x, y, vx, vy, a, r
+    def __init__(self, pos, a = 500, r = 20):
+        """Constructor of Player class
+        self.a - acceleration coef.
+        self.r - radius
+        """
+        self.pos, self.a, self.r = Vec2(*pos), a, r
+        self.v = Vec2()
         self.refresh_color()
 
     def update(self, game):
         """Update Player state"""
-        if game.pressed[pygame.K_LEFT]:
-            self.vx -= game.delta * self.a
-        if game.pressed[pygame.K_RIGHT]:
-            self.vx += game.delta * self.a
-        if game.pressed[pygame.K_UP]:
-            self.vy -= game.delta * self.a
-        if game.pressed[pygame.K_DOWN]:
-            self.vy += game.delta * self.a
+        f = Vec2()
+        f.x = game.pressed[pygame.K_RIGHT] - game.pressed[pygame.K_LEFT];
+        f.y = game.pressed[pygame.K_DOWN] - game.pressed[pygame.K_UP];
+        f *= self.a
 
-        self.vx -= game.delta * self.vx
-        self.vy -= game.delta * self.vy
+        self.v = self.v + game.delta * (f - self.v)
 
-        self.x += self.vx * game.delta
-        self.y += self.vy * game.delta
+        self.pos += game.delta * self.v
 
         """Do not let Player get out of the Game window"""
-        if self.x < self.r:
-            if self.vx < 0:
-                self.vx = -self.vx
-            self.x = self.r
-        if self.y < self.r:
-            if self.vy < 0:
-                self.vy = -self.vy
-            self.y = self.r
-        if self.x > game.width - self.r:
-            if self.vx > 0:
-                self.vx = -self.vx
-            self.x = game.width - self.r
-        if self.y > game.height - self.r:
-            if self.vy > 0:
-                self.vy = -self.vy
-            self.y = game.height - self.r
+        if self.pos.x < self.r:
+            if self.v.x < 0:
+                self.v.x = -self.v.x
+            self.pos.x = self.r
+        if self.pos.y < self.r:
+            if self.v.y < 0:
+                self.v.y = -self.v.y
+            self.pos.y = self.r
+        if self.pos.x > game.width - self.r:
+            if self.v.x > 0:
+                self.v.x = -self.v.x
+            self.pos.x = game.width - self.r
+        if self.pos.y > game.height - self.r:
+            if self.v.y > 0:
+                self.v.y = -self.v.y
+            self.pos.y = game.height - self.r
 
         self.refresh_color()
 
@@ -56,7 +73,7 @@ class Player:
         """Draw Player on the Game window"""
         pygame.draw.circle(game.screen,
                 (self.color, self.color, self.color),
-                (int(self.x), int(self.y)), self.r)
+                self.pos.intpair(), self.r)
 
 class Game:
     def tick(self):
@@ -77,7 +94,7 @@ class Game:
         self.clock = pygame.time.Clock()
         # set default tool
         self.tool = 'run'
-        self.player = Player()
+        self.player = Player((50, 50))
         self.ar = pygame.PixelArray(self.screen)
 
     def event_handler(self, event):
@@ -101,7 +118,7 @@ class Game:
         """Render the scene"""
         self.screen.fill((0, 0, 0))
         self.player.render(self)
-        self.ar[int(self.player.x/10.0),int(self.player.y/10.0)] = (200,200,200)
+        self.ar[int(self.player.pos.x/10.0),int(self.player.pos.y/10.0)] = (200,200,200)
         pygame.display.flip()
 
     def exit(self):
