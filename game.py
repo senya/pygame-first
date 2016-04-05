@@ -23,9 +23,22 @@ class Vec2:
     def len(self):
         return math.sqrt(self.x * self.x + self.y * self.y)
 
+class Rect:
+    def __init__(self, left, top, right, bottom):
+        self.left, self.top, self.right, self.bottom =\
+            left, top, right, bottom
+
+class Frame:
+    def __init__(self, pressed, dt):
+        self.pressed = pressed
+        self.dt = dt
+
 class Canvas:
     def __init__(self, screen):
         self.screen = screen
+
+    def clear(self):
+        self.screen.fill((0, 0, 0))
 
     def circle(self, color, pos, radius):
         pygame.draw.circle(self.screen, color, pos, radius)
@@ -35,75 +48,81 @@ class Player:
         """Set color (it depens on the module of Player speed)"""
         self.color = min(255, int(self.v.len()) + 100)
 
-    def __init__(self, pos, a = 500, r = 20):
+    def __init__(self, pos, rect, a = 500, radius = 20):
         """Constructor of Player class
         self.a - acceleration coef.
         self.r - radius
         """
-        self.pos, self.a, self.r = Vec2(*pos), a, r
+        self.pos, self.a, self.r = Vec2(*pos), a, radius
+        self.rect = rect
         self.v = Vec2()
         self.refresh_color()
 
-    def update(self, game):
-        """Update Player state"""
-        f = Vec2()
-        f.x = game.pressed[pygame.K_RIGHT] - game.pressed[pygame.K_LEFT];
-        f.y = game.pressed[pygame.K_DOWN] - game.pressed[pygame.K_UP];
-        f *= self.a
-
-        self.v = self.v + game.delta * (f - self.v)
-
-        self.pos += game.delta * self.v
-
-        """Do not let Player get out of the Game window"""
-        if self.pos.x < self.r:
+    def handle_border(self):
+        if self.pos.x - self.r < self.rect.left:
             if self.v.x < 0:
                 self.v.x = -self.v.x
-            self.pos.x = self.r
-        if self.pos.y < self.r:
+            self.pos.x = self.rect.left + self.r
+        if self.pos.y - self.r < self.rect.top:
             if self.v.y < 0:
                 self.v.y = -self.v.y
-            self.pos.y = self.r
-        if self.pos.x > game.width - self.r:
+            self.pos.y = self.rect.top + self.r
+        if self.pos.x + self.r > self.rect.right:
             if self.v.x > 0:
                 self.v.x = -self.v.x
-            self.pos.x = game.width - self.r
-        if self.pos.y > game.height - self.r:
+            self.pos.x = self.rect.right - self.r;
+        if self.pos.y + self.r > self.rect.bottom:
             if self.v.y > 0:
                 self.v.y = -self.v.y
-            self.pos.y = game.height - self.r
+            self.pos.y = self.rect.bottom - self.r
+
+    def update(self, frame):
+        """Update Player state"""
+        f = Vec2()
+        f.x = frame.pressed[pygame.K_RIGHT] - frame.pressed[pygame.K_LEFT];
+        f.y = frame.pressed[pygame.K_DOWN] - frame.pressed[pygame.K_UP];
+        f *= self.a
+        self.v = self.v + frame.dt * (f - self.v)
+        self.pos += frame.dt * self.v
+
+        self.handle_border()
 
         self.refresh_color()
 
-    def render(self, game):
+    def render(self, canvas):
         """Draw Player on the Game window"""
-        game.canvas.circle((self.color, self.color, self.color),
-                           self.pos.intpair(), self.r)
+        canvas.circle((self.color, self.color, self.color),
+                      self.pos.intpair(), self.r)
+
+class World:
+    def __init__(self):
+        self.units = []
+
+    def update(self, frame):
+        for u in self.units:
+            u.update(frame)
+
+    def render(self, canvas):
+        canvas.clear()
+        for u in self.units:
+            u.render(canvas)
+
+    def addUnit(self, u):
+        self.units.append(u)
 
 class Game:
-    def tick(self):
-        """Return time in seconds since previous call
-        and limit speed of the game to 50 fps"""
-        self.delta = self.clock.tick(50) / 1000.0
-
     def __init__(self):
-        """Constructor of the Game"""
-        self._running = True
         self.size = self.width, self.height = 640, 400
-        # create main display - 640x400 window
-        # try to use hardware acceleration
         self.screen = pygame.display.set_mode(self.size, pygame.HWSURFACE)
-        self.canvas = Canvas(self.screen)
-        # set window caption
         pygame.display.set_caption('Game')
-        # get object to help track time
         self.clock = pygame.time.Clock()
-        # set default tool
-        self.tool = 'run'
-        self.player = Player((50, 50))
-        self.ar = pygame.PixelArray(self.screen)
 
-    def event_handler(self, event):
+        self.canvas = Canvas(self.screen)
+
+        self.world = World()
+        self.world.addUnit(Player(pos = (50, 50), rect = Rect(0, 0, 640, 400)))
+
+    def handle_event(self, event):
         """Handling one pygame event"""
         if event.type == pygame.QUIT:
             # close window event
@@ -113,36 +132,18 @@ class Game:
             if event.key == pygame.K_ESCAPE:
                 self.exit()
 
-    def move(self):
-        """Here game objects update their positions"""
-        self.tick()
-        self.pressed = pygame.key.get_pressed()
-
-        self.player.update(self)
-
-    def render(self):
-        """Render the scene"""
-        self.screen.fill((0, 0, 0))
-        self.player.render(self)
-        self.ar[int(self.player.pos.x/10.0),int(self.player.pos.y/10.0)] = (200,200,200)
-        pygame.display.flip()
-
-    def exit(self):
-        """Exit the game"""
-        self._running = False
-
-    def cleanup(self):
-        """Cleanup the Game"""
-        pygame.quit()
-
     def execute(self):
         """Execution loop of the game"""
-        while(self._running):
+        while True:
             # get all pygame events from queue
             for event in pygame.event.get():
-                self.event_handler(event)
-            self.move()
-            self.render()
+                self.handle_event(event)
+
+            dt = self.clock.tick(50) / 1000.0
+            self.world.update(Frame(pygame.key.get_pressed(), dt))
+            self.world.render(self.canvas)
+            pygame.display.flip()
+
         self.cleanup()
 
 if __name__ == "__main__":
