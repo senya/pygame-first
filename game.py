@@ -23,6 +23,12 @@ class Vec2:
     def len(self):
         return math.sqrt(self.x * self.x + self.y * self.y)
 
+class Canvas:
+    def __init__(self, screen):
+        self.screen = screen
+
+    def circle(self, color, pos, radius):
+        pygame.draw.circle(self.screen, color, pos, radius)
 
 class Player:
     def refresh_color(self):
@@ -71,9 +77,8 @@ class Player:
 
     def render(self, game):
         """Draw Player on the Game window"""
-        pygame.draw.circle(game.screen,
-                (self.color, self.color, self.color),
-                self.pos.intpair(), self.r)
+        game.canvas.circle((self.color, self.color, self.color),
+                           self.pos.intpair(), self.r)
 
 class Game:
     def tick(self):
@@ -88,6 +93,7 @@ class Game:
         # create main display - 640x400 window
         # try to use hardware acceleration
         self.screen = pygame.display.set_mode(self.size, pygame.HWSURFACE)
+        self.canvas = Canvas(self.screen)
         # set window caption
         pygame.display.set_caption('Game')
         # get object to help track time
