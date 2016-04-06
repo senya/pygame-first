@@ -1,5 +1,7 @@
 import pygame
 import math
+import keys
+from pubnub import Pubnub
 
 class Vec2:
     def __init__(self, x = 0, y = 0):
@@ -94,6 +96,26 @@ class Player:
         canvas.circle((self.color, self.color, self.color),
                       self.pos.intpair(), self.r)
 
+class Net:
+    def callback(self, message):
+        print(message)
+
+    def __init__(self, channel = "my_channel_sf23"):
+        self.channel = channel
+        self.pubnub = Pubnub(publish_key=keys.PUB_KEY,
+                subscribe_key=keys.SUB_KEY)
+
+    def subscribe(self, callback):
+        self.pubnub.subscribe(channels=self.channel,
+                callback=callback, error=self.callback)
+
+    def unsubscribe(self):
+        self.pubnub.unsubscribe(channel=self.channel)
+
+    def publish(self, message):
+        self.pubnub.publish(channel=self.channel, message=message,
+                callback=self.callback, error=self.callback)
+
 class World:
     def __init__(self):
         self.units = []
@@ -111,6 +133,9 @@ class World:
         self.units.append(u)
 
 class Game:
+    def sync(self, message, channel):
+        print(message)
+
     def __init__(self):
         self._running = True
         self.size = self.width, self.height = 640, 400
@@ -122,6 +147,9 @@ class Game:
 
         self.world = World()
         self.world.addUnit(Player(pos = (50, 50), rect = Rect(0, 0, 640, 400)))
+
+        self.net = Net()
+        self.net.subscribe(self.sync)
 
     def exit(self):
         """Exit the game"""
@@ -140,6 +168,7 @@ class Game:
     def cleanup(self):
         """Cleanup the Game"""
         pygame.quit()
+        self.net.unsubscribe()
 
     def execute(self):
         """Execution loop of the game"""
