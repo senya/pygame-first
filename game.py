@@ -112,6 +112,7 @@ class World:
 
 class Game:
     def __init__(self):
+        self._running = True
         self.size = self.width, self.height = 640, 400
         self.screen = pygame.display.set_mode(self.size, pygame.HWSURFACE)
         pygame.display.set_caption('Game')
@@ -121,6 +122,10 @@ class Game:
 
         self.world = World()
         self.world.addUnit(Player(pos = (50, 50), rect = Rect(0, 0, 640, 400)))
+
+    def exit(self):
+        """Exit the game"""
+        self._running = False
 
     def handle_event(self, event):
         """Handling one pygame event"""
@@ -132,9 +137,13 @@ class Game:
             if event.key == pygame.K_ESCAPE:
                 self.exit()
 
+    def cleanup(self):
+        """Cleanup the Game"""
+        pygame.quit()
+
     def execute(self):
         """Execution loop of the game"""
-        while True:
+        while self._running:
             # get all pygame events from queue
             for event in pygame.event.get():
                 self.handle_event(event)
